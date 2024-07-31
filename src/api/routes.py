@@ -23,8 +23,8 @@ def handle_hello():
     return jsonify(response_body), 200
 
 # Esto lo traje de la documentación y lo modifico para que se adapte a mi modelo
-# Create a route to authenticate your users and return JWTs. The
-# create_access_token() function is used to actually generate the JWT.
+# Crear ruta para autenticar a los usuarios y devolver JWT. 
+# La función create_access_token() se utiliza para generar el JWT.
 @api.route("/login", methods=["POST"])
 def login():
     email = request.json.get("email", None)
@@ -40,11 +40,11 @@ def login():
         return jsonify({"msg": "Bad email or password"}), 401
 
     access_token = create_access_token(identity=email)
-    return jsonify(access_token=access_token)
+    return jsonify({"access_token": access_token,"logged":True})
 
 # Rutas protegidas, con endpoint base traído de la documentación
 # Esto expulsará las solicitudes sin un JWT válido
-@api.route("/private", methods=["GET"])
+@api.route("/profile", methods=["GET"])
 @jwt_required() #Esto es lo que verifica la autenticación
 
 def private():
@@ -52,3 +52,42 @@ def private():
     current_user = get_jwt_identity()
 
     return jsonify(logged_in_as=current_user), 200
+
+#Ruta para crear un nuevo usuario en caso de que no tenga, y también si se intenta iniciar sesión con un correo no registrado
+@api.route("/createuser", methods=["POST"])
+def create_user():
+    email = request.json.get("email", None)
+    password = request.json.get("password", None)
+
+    # Consulta
+    user_query = User.query.filter_by(email=email).first()
+
+    if user_query == None:
+        new_user = User(
+            email= email,
+            password= password,
+            is_active= True
+        )
+        db.session.add(new_user)
+        db.session.commit
+        return jsonify({"msg": "User not registered"})
+
+    # if email != user_query.email or password != user_query.password:
+    #     return jsonify({"msg": "Bad email or password"}), 401
+
+    access_token = create_access_token(identity=email)
+    return jsonify(access_token=access_token)
+
+    # Validación del token
+@api.route("/valid-token", methods=["GET"])
+@jwt_required() 
+
+def valid_token():
+    current_user = get_jwt_identity()
+    user_exist = User.query.filter_by(email=current_user).first()
+    
+    if user_exist is None:
+        return jsonify(logged=False), 404
+
+    print(user_exist)
+    return jsonify(logged=True), 200
